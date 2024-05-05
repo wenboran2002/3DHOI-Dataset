@@ -51,7 +51,7 @@ We need SMPL-X parameters below(the final keys should be the same as keys below)
 ```
 #### contact:
 We use body part label for contact regions.
-We provide an example conversion for BEHAVE [here]('./code/contact_human.py').
+We provide an example conversion for BEHAVE [here](./code/contact_human.py).
 
 ### Interaction:
 
@@ -60,3 +60,21 @@ If the custom dataset does not provide interaction label, you need to generate i
 Assuming that the rgba image only includes one pair of human and object, we use [Llava](https://github.com/haotian-liu/LLaVA?tab=readme-ov-file) to generate verbs.
 
 
+### Integration
+
+#### dataset format:
+
+```text
+- image_id,
+    - smplx_parameters.json
+    - object point cloud.ply
+    - contact label
+      - human_part.json
+      - obj_contact.json
+    - annotations.json
+```
+#### annotations:
+ To generate annotations, we need human bbox, object bbox and actions.
+ We generate annotations as hico-det format
+ 
+example is [here](./code/interaction_extract.py)
