@@ -51,7 +51,8 @@ We need SMPL-X parameters below(the final keys should be the same as keys below)
 ```
 #### contact:
 We use body part label for contact regions.
-We provide an example conversion for BEHAVE here.
+We provide an example conversion for BEHAVE [here]('./code/contact_human.py').
+
 ### Interaction:
 
 If the custom dataset does not provide interaction label, you need to generate interaction using rgba image.
