@@ -70,17 +70,12 @@ def main(args):
     else:
         args.conv_mode = conv_mode
 
-
+    verbs_out=[]
+    for iii in range(4):
+        verbs_out.append({})
     for img_p in tqdm(img_path_list):
-        if not os.path.exists('./behave_verbs.json'):
-            verbs_out={}
-        else:
-            verbs_out=json.load(open('./behave_verbs.json'))
-        conv = conv_templates[args.conv_mode].copy()
-        if "mpt" in model_name.lower():
-            roles = ('user', 'assistant')
-        else:
-            roles = conv.roles
+
+
         suffix=''
         for idxxx,im in enumerate(img_p.split('_')):
             if idxxx !=( len(img_p.split('_'))-1):
@@ -88,68 +83,65 @@ def main(args):
         suffix=suffix[:-1]
         frame=img_p.split('_')[-1].split('.')[0]+'.000'
         # print(img_p)
-        im_s_p=seq_dir+suffix+'/'+frame+'/k1.color.jpg'
-        h_mask_p=seq_dir+suffix+'/'+frame+'/k1.person_mask.jpg'
-        o_mask_p=seq_dir+suffix+'/'+frame+'/k1.obj_rend_mask.jpg'
-        obj_name=img_p.split('_')[2]
-        image = load_image(im_s_p)
-        image=mask_img(load_image(o_mask_p),load_image(h_mask_p),image)
-        image.save('./test.png')
-        image_size = image.size
-        # Similar operation in model_worker.py
-        image_tensor = process_images([image], image_processor, model.config)
-        if type(image_tensor) is list:
-            image_tensor = [image.to(model.device, dtype=torch.float16) for image in image_tensor]
-        else:
-            image_tensor = image_tensor.to(model.device, dtype=torch.float16)
-
-        # while True:
-        #     try:
-        #         inp = input(f"{roles[0]}: ")
-        #     except EOFError:
-        #         inp = ""
-        #     if not inp:
-        #         print("exit...")
-        #         break
-        #     print(f"{roles[1]}: ", end="")
-        inp=f"{roles[0]}:choose verbs from 'chase,dry,hold,pet,board,catch,drive,assemble,straddle,jump,sit at,zip,adjust,clean,lie on,drink with,check,feed,blow,ride,stand on,wear,break,brush with,direct,run,hug,cook,sit on,cut,cut with,drag,hop on,carry,dribble,buy,fly,control,fill,repair,read,type on,row,eat,wield,operate,kick,turn,stand under,hit,throw,text on,sip,walk,eat at,point,pull,grind,block,open,greet,teach,race,stick,lick,load,toast,shear,make,stop at,flip,peel,park,push,lasso,exit,launch,wash,slide,lift,pick_up,groom,train,hose,swing,scratch,herd,sail,hunt,pour,milk,light,pick,kiss,tie,paint,install,serve,set,stir,smell,pack,release,pay,move,stab,spin,squeeze'to describe the interaction between the person and the {obj_name}.Answer like 'run,sleep' if the person is running and sleep with the object"
-
-        if image is not None:
-            # first message
-            if model.config.mm_use_im_start_end:
-                inp = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + inp
+        for imm in range(4):
+            if not os.path.exists(f'./behave_verbs_{str(imm)}.json'):
+                verbs_out[imm] = {}
             else:
-                inp = DEFAULT_IMAGE_TOKEN + '\n' + inp
-            image = None
+                verbs_out[imm] = json.load(open(f'./behave_verbs_{str(imm)}.json'))
+            conv = conv_templates[args.conv_mode].copy()
+            if "mpt" in model_name.lower():
+                roles = ('user', 'assistant')
+            else:
+                roles = conv.roles
+            im_s_p=seq_dir+suffix+'/'+frame+f'/k{str(imm)}.color.jpg'
+            h_mask_p=seq_dir+suffix+'/'+frame+f'/k{str(imm)}.person_mask.jpg'
+            o_mask_p=seq_dir+suffix+'/'+frame+f'/k{str(imm)}.obj_rend_mask.jpg'
+            obj_name=img_p.split('_')[2]
+            image = load_image(im_s_p)
+            image=mask_img(load_image(o_mask_p),load_image(h_mask_p),image)
+            # image.save('./test.png')
+            image_size = image.size
+            # Similar operation in model_worker.py
+            image_tensor = process_images([image], image_processor, model.config)
+            if type(image_tensor) is list:
+                image_tensor = [image.to(model.device, dtype=torch.float16) for image in image_tensor]
+            else:
+                image_tensor = image_tensor.to(model.device, dtype=torch.float16)
 
-        conv.append_message(conv.roles[0], inp)
-        conv.append_message(conv.roles[1], None)
-        prompt = conv.get_prompt()
+            inp="{USER: choose verbs from 'hold,catch,sit at,lie on,brush with,sit on,cut with,drag,carry,type on,operate,kick,throw,pull,push,lift,pick up,swing,pick,move,stab,squeeze'to describe the interaction between the person and the %s.Please generate the response in the form of a Python dictionary string with keys 'VERB', where its value is the selected verb in Python string format.DO NOT PROVIDE ANY OTHER OUTPUT TEXT OR EXPLANATION. DO NOT USE VERB WITHOUT THE OPTIONS. Only provide the Python dictionary. For example, your response should look like this: {'VERB': 'hold'}."%(obj_name)
+            # inp=f"{roles[0]}: describe the interaction between the person and the {obj_name}.You should only focus on {obj_name}. Please provide your answer to the QUESTION in one sentence like: The person is sitting on it."
+            if image is not None:
+                # first message
+                if model.config.mm_use_im_start_end:
+                    inp = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + inp
+                else:
+                    inp = DEFAULT_IMAGE_TOKEN + '\n' + inp
+                image = None
 
-        input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(model.device)
-        stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
-        keywords = [stop_str]
-        streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+            conv.append_message(conv.roles[0], inp)
+            conv.append_message(conv.roles[1], None)
+            prompt = conv.get_prompt()
 
-        with torch.inference_mode():
-            output_ids = model.generate(
-                input_ids,
-                images=image_tensor,
-                image_sizes=[image_size],
-                do_sample=True if args.temperature > 0 else False,
-                temperature=args.temperature,
-                max_new_tokens=args.max_new_tokens,
-                streamer=streamer,
-                use_cache=True)
-        # exit(0)
-        outputs = tokenizer.decode(output_ids[0]).strip()
-        verbs_out[img_p.split('.')[0]]=outputs
-        with open('./behave_verbs.json', 'w') as f:
-            json.dump(verbs_out, f)
-        # conv.messages[-1][-1] = outputs
+            input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(model.device)
+            stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
+            keywords = [stop_str]
+            streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
-        # if args.debug:
-        #     print("\n", {"prompt": prompt, "outputs": outputs}, "\n")
+            with torch.inference_mode():
+                output_ids = model.generate(
+                    input_ids,
+                    images=image_tensor,
+                    image_sizes=[image_size],
+                    do_sample=True if args.temperature > 0 else False,
+                    temperature=args.temperature,
+                    max_new_tokens=args.max_new_tokens,
+                    streamer=streamer,
+                    use_cache=True)
+            # exit(0)
+            outputs = tokenizer.decode(output_ids[0]).strip()
+            verbs_out[imm][img_p.split('.')[0]]=outputs
+            with open(f'./behave_verbs_{str(imm)}.json', 'w') as f:
+                json.dump(verbs_out[imm], f)
 
 
 if __name__ == "__main__":
