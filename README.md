@@ -74,9 +74,10 @@ We select some possible verbs for BEHAVE, for other dataset, you can replace the
 
 ```text
 - image_id,
+    - image.(png,jpg)
     - smplx_parameters.json
-    - object point cloud.ply
-    - contact label
+    - obj_pcd_0.ply
+    - contact_label
       - human_part.json
       - obj_contact.json
     - annotations.json
@@ -85,6 +86,13 @@ We select some possible verbs for BEHAVE, for other dataset, you can replace the
 
 #### annotations:
  To generate annotations, we need human bbox, object bbox and actions.
- We generate annotations as hico-det format
+ We generate annotations as hico-det format with slightly changes.
  
-example is [here](./code/interaction_extract.py)
+example is [here](./code/integrate_annot.py)
+
+```json
+{"file_name": "Date07_Sub08_yogamat_t0023", 
+ "hoi_annotation": [{"subject_id": 0, "object_id": 1, "action": "hold"}], 
+ "annotations": [{"bbox": [[760, 608, 287, 871]], "category": "person"}, 
+  {"bbox": [[600, 848, 447, 159]], "category_id": "yogamat"}]}
+```
